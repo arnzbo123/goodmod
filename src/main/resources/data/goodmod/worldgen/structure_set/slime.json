@@ -1,0 +1,14 @@
+{
+  "structures": [
+    {
+      "structure": "goodmod:slime",
+      "weight": 1
+    }
+  ],
+  "placement": {
+    "type": "minecraft:random_spread",
+    "spacing": 30,
+    "separation": 10,
+    "salt": 61928405
+  }
+}

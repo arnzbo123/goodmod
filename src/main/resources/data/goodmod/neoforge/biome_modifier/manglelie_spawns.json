@@ -1,0 +1,16 @@
+{
+  "type": "neoforge:add_spawns",
+  "biomes": [
+    "minecraft:end_midlands",
+    "minecraft:end_highlands",
+    "minecraft:dark_forest"
+  ],
+  "spawners": [
+    {
+      "type": "goodmod:manglelie",
+      "weight": 4,
+      "minCount": 1,
+      "maxCount": 1
+    }
+  ]
+}

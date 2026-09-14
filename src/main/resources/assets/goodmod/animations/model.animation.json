@@ -1,0 +1,48 @@
+{
+	"format_version": "1.8.0",
+	"animations": {
+		"animation.model.wobble": {
+			"loop": true,
+			"animation_length": 2,
+			"bones": {
+				"booL2": {
+					"rotation": {
+						"0.0": {
+							"vector": [-16.5, 0, 20]
+						},
+						"1.0": {
+							"vector": [16.5, 0, 20],
+							"easing": "easeInOutSine"
+						},
+						"2.0": {
+							"vector": [-16.5, 0, 20],
+							"easing": "easeInOutSine"
+						}
+					}
+				}
+			}
+		},
+		"animation.model.new": {
+			"loop": true,
+			"bones": {
+				"body": {
+					"rotation": [-90, 0, 0],
+					"position": [0, 3, -10.9]
+				},
+				"LegL": {
+					"rotation": [0, 0, 0]
+				},
+				"shinL": {
+					"rotation": [-75, 0, 0]
+				},
+				"upperBody": {
+					"rotation": [87.5, 0, 0]
+				},
+				"boobL": {
+					"rotation": [-54.9791, 2.26564, 1.0571]
+				}
+			}
+		}
+	},
+	"geckolib_format_version": 2
+}

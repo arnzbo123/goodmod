@@ -1,0 +1,32 @@
+{
+	"format_version": "1.12.0",
+	"minecraft:geometry": [
+		{
+			"description": {
+				"identifier": "geometry.unknown",
+				"texture_width": 32,
+				"texture_height": 32,
+				"visible_bounds_width": 2,
+				"visible_bounds_height": 2.5,
+				"visible_bounds_offset": [0, 0.75, 0]
+			},
+			"bones": [
+				{
+					"name": "staff",
+					"pivot": [0, 0, 0],
+					"cubes": [
+						{"origin": [-1.25, 17.5, -1.25], "size": [2.5, 1, 2.5], "uv": [8, 8]},
+						{"origin": [-1, -1, -1], "size": [2, 21, 2], "uv": [0, 0]},
+						{"origin": [-1.5, 19, -1.5], "size": [3, 1.025, 3], "uv": [8, 4]},
+						{"origin": [-1.5, -1.5, -1.5], "size": [3, 1.025, 3], "uv": [8, 0]}
+					]
+				},
+				{
+					"name": "energy",
+					"parent": "staff",
+					"pivot": [0, 22.5, 0]
+				}
+			]
+		}
+	]
+}

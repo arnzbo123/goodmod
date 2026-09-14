@@ -1,0 +1,14 @@
+{
+  "structures": [
+    {
+      "structure": "goodmod:ellie",
+      "weight": 1
+    }
+  ],
+  "placement": {
+    "type": "minecraft:random_spread",
+    "spacing": 36,
+    "separation": 16,
+    "salt": 28472910
+  }
+}

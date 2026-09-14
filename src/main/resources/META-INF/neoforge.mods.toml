@@ -1,0 +1,33 @@
+modLoader="javafml"
+loaderVersion="[4,)"
+license="All Rights Reserved"
+
+[[mods]]
+modId="goodmod"
+version="1.1.0"
+displayName="Goodcraft"
+description='''
+best mod ever!!!
+'''
+authors="arn, Anonymous dev team"
+
+[[dependencies.goodmod]]
+    modId="neoforge"
+    type="required"
+    versionRange="[21.1.84,)"
+    ordering="NONE"
+    side="BOTH"
+
+[[dependencies.goodmod]]
+    modId="minecraft"
+    type="required"
+    versionRange="[1.21.1,1.22)"
+    ordering="NONE"
+    side="BOTH"
+
+[[dependencies.goodmod]]
+    modId="geckolib"
+    type="required"
+    versionRange="[4.0.0,)"
+    ordering="AFTER"
+    side="BOTH"

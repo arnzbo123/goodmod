@@ -1,0 +1,30 @@
+# Gradle build outputs and cache
+.gradle/
+build/
+out/
+
+# IDE files
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws
+
+# Minecraft run directory and logs
+run/
+logs/
+
+# Compiled JARs (except the Gradle wrapper JAR)
+*.jar
+!gradle/wrapper/gradle-wrapper.jar
+
+# Temporary porting resources and scratch files
+goodcraft 1.12.2 v1.1/
+custom_skin/
+software/
+scratch/
+scratch_check_anims.py
+
+# System files
+.DS_Store
+Thumbs.db

@@ -1,0 +1,11 @@
+{
+  "replace": false,
+  "values": [
+    "minecraft:stony_peaks",
+    "minecraft:jagged_peaks",
+    "minecraft:frozen_peaks",
+    "minecraft:stony_shore",
+    "minecraft:dripstone_caves",
+    "minecraft:windswept_hills"
+  ]
+}
