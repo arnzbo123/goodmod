@@ -1,6 +1,6 @@
 # goodcraft (goodmod) - NeoForge 1.21.1
 
-A port of the goodcraft mod to Minecraft 1.21.1 using NeoForge and GeckoLib.
+A port of the Jeny mod to Minecraft 1.21.1 using NeoForge and GeckoLib.
 
 ## Requirements
 
