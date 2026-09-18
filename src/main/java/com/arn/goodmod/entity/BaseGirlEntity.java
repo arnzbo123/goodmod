@@ -71,6 +71,7 @@ public abstract class BaseGirlEntity extends PathfinderMob implements GeoEntity 
 
     protected int sceneTicks = 0;
     protected int thrustTicks = 0;
+    protected int voiceCooldownTicks = 0;
 
     // Client-side tracked bone positions for dynamic camera sync
     public Vec3 clientBoyCamPos = null;
@@ -385,7 +386,7 @@ public abstract class BaseGirlEntity extends PathfinderMob implements GeoEntity 
         ActionState current = getAction();
         if (current.name().contains("CUM")) return;
 
-        this.thrustTicks = 18;
+        this.thrustTicks = 25;
         setThrusting(true);
 
         float currentHorny = getHorny();
@@ -444,8 +445,41 @@ public abstract class BaseGirlEntity extends PathfinderMob implements GeoEntity 
     }
 
     protected void playSceneThrustSound() {
-        SoundEvent sound = ModSounds.MISC_POUNDING.value();
+        ActionState current = getAction();
+        String name = current.name();
+        SoundEvent sound;
+
+        // Action-aware mechanical sound selection
+        if (name.contains("BLOWJOB") || name.contains("DEEPTHROAT")) {
+            sound = random.nextBoolean() ? ModSounds.MISC_PLOB.value() : ModSounds.MISC_SLIDE.value();
+        } else if (name.contains("PAIZURI") || name.contains("TOUCH_BOOBS")) {
+            sound = ModSounds.MISC_TOUCH.value();
+        } else if (name.contains("COWGIRL") || name.contains("MISSIONARY") || name.contains("MATING_PRESS")) {
+            sound = random.nextInt(3) == 0 ? ModSounds.MISC_BEDRUSTLE.value() : ModSounds.MISC_POUNDING.value();
+        } else {
+            // Doggy, anal, prone, nelson, corrupt, rape, breeding, citizen, etc.
+            sound = random.nextInt(4) == 0 ? ModSounds.MISC_SLAP.value() : ModSounds.MISC_POUNDING.value();
+        }
+
         level().playSound(null, getX(), getY(), getZ(), sound, SoundSource.PLAYERS, 0.8F, 0.95F + random.nextFloat() * 0.1F);
+
+        // Occasional girl voice on thrust (throttled)
+        if (this.voiceCooldownTicks <= 0 && random.nextInt(3) == 0) {
+            String girlName = getGirlName();
+            String voiceType;
+            if (name.contains("BLOWJOB") || name.contains("DEEPTHROAT")) {
+                voiceType = "bjmoan";
+            } else if (getHorny() >= 70.0F) {
+                voiceType = "moan";
+            } else {
+                voiceType = random.nextBoolean() ? "ahh" : "moan";
+            }
+            SoundEvent voice = ModSounds.getGirlVoice(girlName, voiceType);
+            if (voice != null) {
+                level().playSound(null, getX(), getY(), getZ(), voice, SoundSource.PLAYERS, 0.7F, 0.95F + random.nextFloat() * 0.1F);
+            }
+            this.voiceCooldownTicks = 15 + random.nextInt(20);
+        }
     }
 
     protected void handleClimax() {
@@ -502,6 +536,10 @@ public abstract class BaseGirlEntity extends PathfinderMob implements GeoEntity 
             if (this.thrustTicks == 0) {
                 setThrusting(false);
             }
+        }
+
+        if (this.voiceCooldownTicks > 0) {
+            this.voiceCooldownTicks--;
         }
 
         if (getAction() == ActionState.STRIP) {
@@ -626,6 +664,14 @@ public abstract class BaseGirlEntity extends PathfinderMob implements GeoEntity 
                 openDialogueScreen(player);
             }
             return InteractionResult.sidedSuccess(level().isClientSide);
+        } else {
+            if (getAction() == ActionState.WAITDOGGY) {
+                transitionTo(ActionState.DOGGYSTART);
+                return InteractionResult.sidedSuccess(level().isClientSide);
+            } else if (getAction() == ActionState.ANAL_WAIT) {
+                transitionTo(ActionState.ANAL_START);
+                return InteractionResult.sidedSuccess(level().isClientSide);
+            }
         }
 
         return super.mobInteract(player, hand);
@@ -671,7 +717,7 @@ public abstract class BaseGirlEntity extends PathfinderMob implements GeoEntity 
                 options.add(new DialogueOption(Component.translatable("action.names.doggy"), ActionState.STARTDOGGY));
                 break;
             case "bia":
-                options.add(new DialogueOption(Component.translatable("action.names.anal"), ActionState.ANAL_START));
+                options.add(new DialogueOption(Component.translatable("action.names.anal"), ActionState.ANAL_PREPARE));
                 options.add(new DialogueOption(Component.translatable("action.names.doggy"), ActionState.PRONE_DOGGY_INTRO));
                 options.add(new DialogueOption(Component.translatable("action.names.headpat"), ActionState.HEAD_PAT));
                 options.add(new DialogueOption(Component.translatable("action.names.talk"), ActionState.TALK_IDLE));
@@ -816,8 +862,66 @@ public abstract class BaseGirlEntity extends PathfinderMob implements GeoEntity 
                 || lower.contains("dress") || lower.contains("undress") || lower.contains("burp");
     }
 
+    public void transitionTo(ActionState nextAction) {
+        setAction(nextAction);
+        if (level().isClientSide()) {
+            net.neoforged.neoforge.network.PacketDistributor.sendToServer(
+                    new com.arn.goodmod.network.ModPackets.ActionTransitionPayload(getId(), nextAction.name()));
+        } else {
+            if (getPartnerUUID().isPresent()) {
+                var p = level().getPlayerByUUID(getPartnerUUID().get());
+                if (p instanceof net.minecraft.server.level.ServerPlayer sp) {
+                    net.neoforged.neoforge.network.PacketDistributor.sendToPlayer(sp,
+                            new com.arn.goodmod.network.ModPackets.SyncScenePayload(getId(), nextAction.name(), java.util.Optional.of(sp.getUUID())));
+                }
+            }
+        }
+    }
+
     protected void handleAnimationControlKeyframe(String sound) {
         String lower = sound.toLowerCase();
+
+        // 1. Jenny transitions
+        if (lower.equals("bjidone")) {
+            transitionTo(ActionState.SUCKBLOWJOB);
+            return;
+        } else if (lower.equals("doggygoonbeddone")) {
+            transitionTo(ActionState.WAITDOGGY);
+            return;
+        } else if (lower.equals("doggystartdone")) {
+            transitionTo(ActionState.DOGGYSLOW);
+            return;
+        }
+        // 2. Luna / Cat transitions
+        else if (lower.equals("touch_boobs_introdone")) {
+            transitionTo(ActionState.TOUCH_BOOBS_SLOW);
+            return;
+        }
+        // 3. Bia transitions
+        else if (lower.equals("anal_preparedone")) {
+            transitionTo(ActionState.ANAL_WAIT);
+            return;
+        } else if (lower.equals("anal_startdone")) {
+            transitionTo(ActionState.ANAL_SLOW);
+            return;
+        }
+        // 4. Kobold transitions
+        else if (lower.equals("blowjobstartdone")) {
+            transitionTo(ActionState.SUCKBLOWJOB_BLINK);
+            return;
+        } else if (lower.equals("analstartdone")) {
+            transitionTo(ActionState.KOBOLD_ANAL_SLOW);
+            return;
+        } else if (lower.equals("mating_press_startdone")) {
+            transitionTo(ActionState.MATING_PRESS_SOFT);
+            return;
+        }
+        // 5. Galath transitions
+        else if (lower.equals("rapeintrodone")) {
+            transitionTo(ActionState.RAPE_ON_GOING);
+            return;
+        }
+
         if (lower.contains("becomenude") || lower.contains("setnude") || lower.contains("undress")) {
             setClothState(1);
             playLocalSound(ModSounds.MISC_BEDRUSTLE.value(), 0.8F, 1.0F);
@@ -891,6 +995,7 @@ public abstract class BaseGirlEntity extends PathfinderMob implements GeoEntity 
         }
 
         if (action == ActionState.NULL || !action.isAdultScene()) {
+            state.getController().setAnimationSpeed(1.0D);
             if (state.isMoving()) {
                 return state.setAndContinue(RawAnimation.begin().thenLoop("animation." + girlName + ".walk"));
             }
@@ -899,10 +1004,30 @@ public abstract class BaseGirlEntity extends PathfinderMob implements GeoEntity 
 
         // Adult scene animation resolution
         String animName = resolveAnimationName(action, girlName);
-        if (isThrusting()) {
-            state.getController().setAnimationSpeed(getHorny() >= 65.0F ? 1.10D : 0.95D);
+        String actionName = action.name();
+
+        // Intro/transition animations play at full speed so keyframe transitions fire on time
+        boolean isIntro = actionName.contains("START") || actionName.contains("INTRO")
+                || actionName.contains("PREPARE") || actionName.contains("WAIT")
+                || action == ActionState.STARTBLOWJOB || action == ActionState.STARTDOGGY
+                || action == ActionState.COWGIRLSTART || action == ActionState.DOGGYSTART;
+        boolean isCum = actionName.contains("CUM");
+
+        if (isIntro || isCum) {
+            state.getController().setAnimationSpeed(1.0D);
+        } else if (isThrusting()) {
+            // Active thrusting: speed scales with arousal for escalating intensity
+            float horny = getHorny();
+            if (horny >= 80.0F) {
+                state.getController().setAnimationSpeed(1.15D);
+            } else if (horny >= 50.0F) {
+                state.getController().setAnimationSpeed(1.05D);
+            } else {
+                state.getController().setAnimationSpeed(1.0D);
+            }
         } else {
-            state.getController().setAnimationSpeed(0.60D);
+            // Idle rhythm when not pressing thrust — visible but relaxed motion
+            state.getController().setAnimationSpeed(0.85D);
         }
 
         return state.setAndContinue(RawAnimation.begin().thenLoop(animName));
@@ -935,10 +1060,13 @@ public abstract class BaseGirlEntity extends PathfinderMob implements GeoEntity 
         return switch (girl) {
             case "jenny" -> switch (action) {
                 case STRIP -> "animation.jenny.strip";
-                case STARTBLOWJOB, SUCKBLOWJOB, SUCKBLOWJOB_BLINK -> "animation.jenny.blowjobsuck";
+                case STARTBLOWJOB -> "animation.jenny.blowjobintro";
+                case SUCKBLOWJOB, SUCKBLOWJOB_BLINK -> "animation.jenny.blowjobsuck";
                 case THRUSTBLOWJOB -> "animation.jenny.blowjobthrust";
                 case CUMBLOWJOB -> "animation.jenny.blowjobcum";
-                case STARTDOGGY, WAITDOGGY, DOGGYSTART -> "animation.jenny.doggystart";
+                case STARTDOGGY -> "animation.jenny.doggygoonbed";
+                case WAITDOGGY -> "animation.jenny.doggywait";
+                case DOGGYSTART -> "animation.jenny.doggystart";
                 case DOGGYSLOW -> "animation.jenny.doggyslow";
                 case DOGGYFAST -> "animation.jenny.doggyfast_soft";
                 case DOGGYCUM -> "animation.jenny.doggycum";
@@ -966,10 +1094,13 @@ public abstract class BaseGirlEntity extends PathfinderMob implements GeoEntity 
             };
             case "slime" -> switch (action) {
                 case STRIP -> "animation.slime.strip";
-                case STARTBLOWJOB, SUCKBLOWJOB, SUCKBLOWJOB_BLINK -> "animation.slime.blowjobsuck";
+                case STARTBLOWJOB -> "animation.slime.blowjobintro";
+                case SUCKBLOWJOB, SUCKBLOWJOB_BLINK -> "animation.slime.blowjobsuck";
                 case THRUSTBLOWJOB -> "animation.slime.blowjobthrust";
                 case CUMBLOWJOB -> "animation.slime.blowjobcum";
-                case STARTDOGGY, WAITDOGGY, DOGGYSTART -> "animation.slime.doggystart";
+                case STARTDOGGY -> "animation.slime.doggygoonbed";
+                case WAITDOGGY -> "animation.slime.doggywait";
+                case DOGGYSTART -> "animation.slime.doggystart";
                 case DOGGYSLOW -> "animation.slime.doggyslow";
                 case DOGGYFAST -> "animation.slime.doggyfast";
                 case DOGGYCUM -> "animation.slime.doggycum";
@@ -977,7 +1108,9 @@ public abstract class BaseGirlEntity extends PathfinderMob implements GeoEntity 
             };
             case "bia" -> switch (action) {
                 case STRIP -> "animation.bia.strip";
-                case ANAL_START, ANAL_PREPARE, ANAL_WAIT -> "animation.bia.anal_start";
+                case ANAL_PREPARE -> "animation.bia.anal_prepare";
+                case ANAL_WAIT -> "animation.bia.anal_wait";
+                case ANAL_START -> "animation.bia.anal_start";
                 case ANAL_SLOW -> "animation.bia.anal_slow";
                 case ANAL_FAST -> "animation.bia.anal_fast";
                 case ANAL_CUM -> "animation.bia.anal_cum";
@@ -1025,7 +1158,8 @@ public abstract class BaseGirlEntity extends PathfinderMob implements GeoEntity 
                 case KOBOLD_ANAL_SLOW -> "animation.kobold.analSoft";
                 case KOBOLD_ANAL_FAST -> "animation.kobold.analHard";
                 case KOBOLD_ANAL_CUM -> "animation.kobold.analCum";
-                case STARTBLOWJOB, SUCKBLOWJOB -> "animation.kobold.blowjobStart";
+                case STARTBLOWJOB -> "animation.kobold.blowjobStart";
+                case SUCKBLOWJOB, SUCKBLOWJOB_BLINK -> "animation.kobold.blowjobSlowL";
                 case THRUSTBLOWJOB -> "animation.kobold.blowjobFast";
                 case CUMBLOWJOB -> "animation.kobold.blowjobCum";
                 case MATING_PRESS_START -> "animation.kobold.mating_press_start";

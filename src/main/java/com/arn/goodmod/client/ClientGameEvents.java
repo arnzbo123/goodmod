@@ -249,6 +249,9 @@ public class ClientGameEvents {
                 thrustBob = 1.0F;
                 com.arn.goodmod.client.gui.HornyMeterOverlay.onThrust();
                 PacketDistributor.sendToServer(new ModPackets.ThrustPayload(currentGirl.getId()));
+
+                // Immediate client-side sound feedback for responsive feel
+                playClientThrustSound(currentGirl, action);
             }
 
             // Handle Free-look toggle/hold
@@ -511,5 +514,30 @@ public class ClientGameEvents {
                 }
             }
         }
+    }
+
+    private static void playClientThrustSound(BaseGirlEntity girl, ActionState action) {
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.player == null) return;
+
+        String name = action.name();
+        net.minecraft.sounds.SoundEvent sound;
+
+        if (name.contains("BLOWJOB") || name.contains("DEEPTHROAT")) {
+            sound = com.arn.goodmod.init.ModSounds.MISC_PLOB.value();
+        } else if (name.contains("PAIZURI") || name.contains("TOUCH_BOOBS")) {
+            sound = com.arn.goodmod.init.ModSounds.MISC_TOUCH.value();
+        } else if (name.contains("COWGIRL") || name.contains("MISSIONARY") || name.contains("MATING_PRESS")) {
+            sound = com.arn.goodmod.init.ModSounds.MISC_POUNDING.value();
+        } else {
+            sound = com.arn.goodmod.init.ModSounds.MISC_POUNDING.value();
+        }
+
+        float pitch = 0.95F + mc.player.getRandom().nextFloat() * 0.1F;
+        mc.player.level().playLocalSound(
+                girl.getX(), girl.getY(), girl.getZ(),
+                sound, net.minecraft.sounds.SoundSource.PLAYERS,
+                0.5F, pitch, false
+        );
     }
 }

@@ -89,10 +89,10 @@ public enum ActionState {
     COWGIRL_SITTING_CUM(5, true, false),
     MINE(0, false, false),
     SLEEP(5, false, false),
-    MATING_PRESS_START(0, true, false, false, -20.0F, 85.0F, true),
-    MATING_PRESS_SOFT(0, true, false, 85.0F, -20.0F, true),
-    MATING_PRESS_HARD(0, true, false, 85.0F, -20.0F, true),
-    MATING_PRESS_CUM(2, true, false, 85.0F, -20.0F, true),
+    MATING_PRESS_START(0, true, false, false, 85.0F, -20.0F, false),
+    MATING_PRESS_SOFT(0, true, false, 85.0F, -20.0F, false),
+    MATING_PRESS_HARD(0, true, false, 85.0F, -20.0F, false),
+    MATING_PRESS_CUM(2, true, false, 85.0F, -20.0F, false),
     SHOULDER_IDLE(0, false, true, false, true),
     PICK_UP(0, true, false, 10.0F, -90.0F, true, true),
     RUN(5, false, true),
@@ -146,14 +146,14 @@ public enum ActionState {
     KNOCK_OUT_STAND_UP(0, false, false),
     RAPE_PREPARE(0, true, false),
     RAPE_CHARGE(0, true, false),
-    RAPE_ON_GOING(0, true, false, true, -20.0F, 85.0F, false),
-    RAPE_INTRO(0, true, false, false, true, 46, "RAPE_ON_GOING", -20.0F, 85.0F, false),
+    RAPE_ON_GOING(0, true, false, true, 60.0F, -30.0F, false),
+    RAPE_INTRO(0, true, false, false, true, 46, "RAPE_ON_GOING"),
     RAPE_CUM_IDLE(0, true, false, true),
-    RAPE_CUM(0, true, false, true, 34, "RAPE_CUM_IDLE", -20.0F, 85.0F, false),
-    CORRUPT_SLOW(0, true, false, 85.0F, -20.0F, false),
-    CORRUPT_FAST(0, true, false, 85.0F, -20.0F, false),
-    CORRUPT_CUM(0, true, false, false, -20.0F, 85.0F, false),
-    CORRUPT_INTRO(0, true, false, true, 29, "CORRUPT_SLOW", -20.0F, 85.0F, false),
+    RAPE_CUM(0, true, false, true, 34, "RAPE_CUM_IDLE", 60.0F, -30.0F, false),
+    CORRUPT_SLOW(0, true, false, 60.0F, -30.0F, false),
+    CORRUPT_FAST(0, true, false, 60.0F, -30.0F, false),
+    CORRUPT_CUM(0, true, false, false, 60.0F, -30.0F, false),
+    CORRUPT_INTRO(0, true, false, true, 29, "CORRUPT_SLOW"),
     CONTROLLED_FLIGHT(0, true, true, true, true),
     BOOST(3, true, false, true, true, 43, "CONTROLLED_FLIGHT"),
     GALATH_SUMMON(0, false, false, false, true, 15, "NULL"),
@@ -227,7 +227,7 @@ public enum ActionState {
         this.hideNameTag = hideNameTag;
     }
 
-    ActionState(int transitionTick, boolean hasPlayer, boolean autoBlink, boolean useBoyCam, float minGirlPitch, float maxGirlPitch, boolean flipGirlYaw) {
+    ActionState(int transitionTick, boolean hasPlayer, boolean autoBlink, boolean useBoyCam, float maxGirlPitch, float minGirlPitch, boolean flipGirlYaw) {
         this.transitionTick = transitionTick;
         this.hasPlayer = hasPlayer;
         this.autoBlink = autoBlink;
@@ -258,19 +258,19 @@ public enum ActionState {
         this.hideNameTag = hideNameTag;
     }
 
-    ActionState(int transitionTick, boolean hasPlayer, boolean autoBlink, boolean useBoyCam, int length, String followUpName, float minGirlPitch, float maxGirlPitch, boolean flipGirlYaw) {
+    ActionState(int transitionTick, boolean hasPlayer, boolean autoBlink, boolean useBoyCam, int length, String followUpName, float maxGirlPitch, float minGirlPitch, boolean flipGirlYaw) {
         this.transitionTick = transitionTick;
         this.hasPlayer = hasPlayer;
         this.autoBlink = autoBlink;
         this.length = length;
         this.followUpName = followUpName;
         this.useBoyCam = useBoyCam;
-        this.minGirlPitch = minGirlPitch;
         this.maxGirlPitch = maxGirlPitch;
+        this.minGirlPitch = minGirlPitch;
         this.flipGirlYaw = flipGirlYaw;
     }
 
-    ActionState(int transitionTick, boolean hasPlayer, boolean autoBlink, boolean useBoyCam, boolean hideNameTag, int length, String followUpName, float minGirlPitch, float maxGirlPitch, boolean flipGirlYaw) {
+    ActionState(int transitionTick, boolean hasPlayer, boolean autoBlink, boolean useBoyCam, boolean hideNameTag, int length, String followUpName, float maxGirlPitch, float minGirlPitch, boolean flipGirlYaw) {
         this.transitionTick = transitionTick;
         this.hasPlayer = hasPlayer;
         this.autoBlink = autoBlink;
@@ -278,8 +278,8 @@ public enum ActionState {
         this.followUpName = followUpName;
         this.useBoyCam = useBoyCam;
         this.hideNameTag = hideNameTag;
-        this.minGirlPitch = minGirlPitch;
         this.maxGirlPitch = maxGirlPitch;
+        this.minGirlPitch = minGirlPitch;
         this.flipGirlYaw = flipGirlYaw;
     }
 

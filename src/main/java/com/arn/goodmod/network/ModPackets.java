@@ -391,6 +391,41 @@ public class ModPackets {
         }
     }
 
+    // 10. ActionTransitionPayload (Client -> Server)
+    public record ActionTransitionPayload(int entityId, String actionName) implements CustomPacketPayload {
+        public static final Type<ActionTransitionPayload> TYPE = new Type<>(ResourceLocation.fromNamespaceAndPath(GoodMod.MODID, "action_transition"));
+        public static final StreamCodec<ByteBuf, ActionTransitionPayload> STREAM_CODEC = StreamCodec.composite(
+                ByteBufCodecs.VAR_INT, ActionTransitionPayload::entityId,
+                ByteBufCodecs.STRING_UTF8, ActionTransitionPayload::actionName,
+                ActionTransitionPayload::new
+        );
+
+        @Override
+        public Type<? extends CustomPacketPayload> type() {
+            return TYPE;
+        }
+
+        public void handle(net.neoforged.neoforge.network.handling.IPayloadContext context) {
+            context.enqueueWork(() -> {
+                Player player = context.player();
+                Entity target = player.level().getEntity(entityId);
+                if (target instanceof BaseGirlEntity girl) {
+                    try {
+                        ActionState action = ActionState.valueOf(actionName);
+                        girl.setAction(action);
+                        if (girl.getPartnerUUID().isPresent()) {
+                            var p = girl.level().getPlayerByUUID(girl.getPartnerUUID().get());
+                            if (p instanceof net.minecraft.server.level.ServerPlayer sp) {
+                                PacketDistributor.sendToPlayer(sp,
+                                        new SyncScenePayload(girl.getId(), action.name(), java.util.Optional.of(sp.getUUID())));
+                            }
+                        }
+                    } catch (Exception ignored) {}
+                }
+            });
+        }
+    }
+
     @SubscribeEvent
     public static void registerPayloads(RegisterPayloadHandlersEvent event) {
         PayloadRegistrar registrar = event.registrar("1");
@@ -403,5 +438,6 @@ public class ModPackets {
         registrar.playToServer(SetHomePayload.TYPE, SetHomePayload.STREAM_CODEC, SetHomePayload::handle);
         registrar.playToServer(GoHomePayload.TYPE, GoHomePayload.STREAM_CODEC, GoHomePayload::handle);
         registrar.playToServer(SetGirlCustomizationPayload.TYPE, SetGirlCustomizationPayload.STREAM_CODEC, SetGirlCustomizationPayload::handle);
+        registrar.playToServer(ActionTransitionPayload.TYPE, ActionTransitionPayload.STREAM_CODEC, ActionTransitionPayload::handle);
     }
 }
