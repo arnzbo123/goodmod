@@ -64,6 +64,9 @@ public abstract class BaseGirlEntity extends PathfinderMob implements GeoEntity 
     public static final EntityDataAccessor<Boolean> IS_GOING_HOME = SynchedEntityData.defineId(BaseGirlEntity.class, EntityDataSerializers.BOOLEAN);
     public static final EntityDataAccessor<Boolean> IS_ON_BED = SynchedEntityData.defineId(BaseGirlEntity.class, EntityDataSerializers.BOOLEAN);
     public static final EntityDataAccessor<Optional<BlockPos>> BED_POS = SynchedEntityData.defineId(BaseGirlEntity.class, EntityDataSerializers.OPTIONAL_BLOCK_POS);
+    public static final EntityDataAccessor<String> CUSTOM_PERSONALITY = SynchedEntityData.defineId(BaseGirlEntity.class, EntityDataSerializers.STRING);
+    public static final EntityDataAccessor<String> HARVEST_TASK_TYPE = SynchedEntityData.defineId(BaseGirlEntity.class, EntityDataSerializers.STRING);
+    public static final EntityDataAccessor<String> HARVEST_TASK_SUBTYPE = SynchedEntityData.defineId(BaseGirlEntity.class, EntityDataSerializers.STRING);
 
     public static java.util.function.Consumer<BaseGirlEntity> dialogueOpener = null;
     public static java.util.function.Consumer<BaseGirlEntity> npcEditorOpener = null;
@@ -78,8 +81,24 @@ public abstract class BaseGirlEntity extends PathfinderMob implements GeoEntity 
     public Vec3 clientGirlCamPos = null;
     public Vec3 clientHead2Pos = null;
 
+    private final net.minecraft.world.SimpleContainer girlInventory = new net.minecraft.world.SimpleContainer(com.arn.goodmod.inventory.GirlInventoryMenu.GIRL_TOTAL_SLOTS);
+    private String customPersonality = "";
+    private boolean syncingInventory = false;
+
     protected BaseGirlEntity(EntityType<? extends PathfinderMob> type, Level level) {
         super(type, level);
+        this.girlInventory.addListener(container -> {
+            if (!this.syncingInventory) {
+                this.syncingInventory = true;
+                super.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD, container.getItem(0));
+                super.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, container.getItem(1));
+                super.setItemSlot(net.minecraft.world.entity.EquipmentSlot.LEGS, container.getItem(2));
+                super.setItemSlot(net.minecraft.world.entity.EquipmentSlot.FEET, container.getItem(3));
+                super.setItemSlot(net.minecraft.world.entity.EquipmentSlot.MAINHAND, container.getItem(4));
+                super.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND, container.getItem(5));
+                this.syncingInventory = false;
+            }
+        });
     }
 
     public static AttributeSupplier.Builder createAttributes() {
@@ -93,24 +112,25 @@ public abstract class BaseGirlEntity extends PathfinderMob implements GeoEntity 
     protected void registerGoals() {
         this.goalSelector.addGoal(0, new FloatGoal(this));
         this.goalSelector.addGoal(1, new GirlFollowPlayerGoal(this));
-        this.goalSelector.addGoal(2, new GirlGoHomeGoal(this));
-        this.goalSelector.addGoal(3, new TemptGoal(this, 1.15D, Ingredient.of(Items.DIAMOND, Items.EMERALD, Items.GOLD_INGOT), false) {
+        this.goalSelector.addGoal(2, new com.arn.goodmod.entity.ai.GirlHarvestTaskGoal(this));
+        this.goalSelector.addGoal(3, new GirlGoHomeGoal(this));
+        this.goalSelector.addGoal(4, new TemptGoal(this, 1.15D, Ingredient.of(Items.DIAMOND, Items.EMERALD, Items.GOLD_INGOT), false) {
             @Override
             public boolean canUse() {
-                return !isInScene() && !isFollowing() && !isGoingHome() && super.canUse();
+                return !isInScene() && !isFollowing() && !isGoingHome() && !hasActiveHarvestTask() && super.canUse();
             }
         });
-        this.goalSelector.addGoal(4, new GirlWanderGoal(this, 0.8D));
-        this.goalSelector.addGoal(5, new LookAtPlayerGoal(this, Player.class, 8.0F) {
+        this.goalSelector.addGoal(5, new GirlWanderGoal(this, 0.8D));
+        this.goalSelector.addGoal(6, new LookAtPlayerGoal(this, Player.class, 8.0F) {
             @Override
             public boolean canUse() {
-                return !isInScene() && super.canUse();
+                return !isInScene() && !hasActiveHarvestTask() && super.canUse();
             }
         });
-        this.goalSelector.addGoal(6, new RandomLookAroundGoal(this) {
+        this.goalSelector.addGoal(7, new RandomLookAroundGoal(this) {
             @Override
             public boolean canUse() {
-                return !isInScene() && super.canUse();
+                return !isInScene() && !hasActiveHarvestTask() && super.canUse();
             }
         });
     }
@@ -130,6 +150,9 @@ public abstract class BaseGirlEntity extends PathfinderMob implements GeoEntity 
         builder.define(IS_GOING_HOME, false);
         builder.define(IS_ON_BED, false);
         builder.define(BED_POS, Optional.empty());
+        builder.define(CUSTOM_PERSONALITY, "");
+        builder.define(HARVEST_TASK_TYPE, "none");
+        builder.define(HARVEST_TASK_SUBTYPE, "");
     }
 
     public ActionState getAction() {
@@ -196,7 +219,7 @@ public abstract class BaseGirlEntity extends PathfinderMob implements GeoEntity 
             ActionState action = getAction();
             if (action.isAdultScene() && level().isClientSide) {
                 net.minecraft.client.Minecraft mc = net.minecraft.client.Minecraft.getInstance();
-                boolean isPartner = (getPartnerUUID().isEmpty() || (mc.player != null && getPartnerUUID().get().equals(mc.player.getUUID())));
+                boolean isPartner = getPartnerUUID().isPresent() && mc.player != null && getPartnerUUID().get().equals(mc.player.getUUID());
                 if (isPartner && mc.player != null) {
                     if (!isOnBed()) {
                         boolean faceGirl = ActionState.shouldFaceGirlDirection(action.name());
@@ -339,8 +362,8 @@ public abstract class BaseGirlEntity extends PathfinderMob implements GeoEntity 
     }
 
     public void startScene(ActionState action, Player player) {
-        setAction(action);
         setPartnerUUID(player.getUUID());
+        setAction(action);
         setHorny(0.0F);
         setThrusting(false);
         setFollowing(false);
@@ -383,6 +406,7 @@ public abstract class BaseGirlEntity extends PathfinderMob implements GeoEntity 
 
     public void handleSceneThrust(Player player) {
         if (!isInScene()) return;
+        if (player != null && getPartnerUUID().isPresent() && !getPartnerUUID().get().equals(player.getUUID())) return;
         ActionState current = getAction();
         if (current.name().contains("CUM")) return;
 
@@ -660,10 +684,20 @@ public abstract class BaseGirlEntity extends PathfinderMob implements GeoEntity 
         }
 
         if (!isInScene()) {
-            if (level().isClientSide) {
-                openDialogueScreen(player);
+            if (hasInventory()) {
+                if (player instanceof net.minecraft.server.level.ServerPlayer serverPlayer) {
+                    serverPlayer.openMenu(new net.minecraft.world.SimpleMenuProvider(
+                            (containerId, playerInv, p) -> new com.arn.goodmod.inventory.GirlInventoryMenu(containerId, playerInv, this),
+                            this.getDisplayName()
+                    ), buf -> buf.writeInt(this.getId()));
+                }
+                return InteractionResult.sidedSuccess(level().isClientSide);
+            } else {
+                if (level().isClientSide) {
+                    openDialogueScreen(player);
+                }
+                return InteractionResult.sidedSuccess(level().isClientSide);
             }
-            return InteractionResult.sidedSuccess(level().isClientSide);
         } else {
             if (getAction() == ActionState.WAITDOGGY) {
                 transitionTo(ActionState.DOGGYSTART);
@@ -675,6 +709,264 @@ public abstract class BaseGirlEntity extends PathfinderMob implements GeoEntity 
         }
 
         return super.mobInteract(player, hand);
+    }
+
+    @Override
+    public void addAdditionalSaveData(CompoundTag tag) {
+        super.addAdditionalSaveData(tag);
+        tag.put("GirlInventory", this.girlInventory.createTag(this.registryAccess()));
+        if (this.customPersonality != null && !this.customPersonality.isEmpty()) {
+            tag.putString("CustomPersonality", this.customPersonality);
+        }
+        tag.putString("HarvestTaskType", getHarvestTaskType());
+        tag.putString("HarvestTaskSubtype", getHarvestTaskSubtype());
+        tag.putString("Action", getAction().name());
+        tag.putFloat("Horny", getHorny());
+        tag.putInt("ClothState", getClothState());
+        tag.putString("CustomSkin", getCustomSkin());
+        if (getPartnerUUID().isPresent()) {
+            tag.putUUID("PartnerUUID", getPartnerUUID().get());
+        }
+        if (getOwnerUUID().isPresent()) {
+            tag.putUUID("OwnerUUID", getOwnerUUID().get());
+        }
+        tag.putBoolean("Following", isFollowing());
+        tag.putBoolean("GoingHome", isGoingHome());
+        getHomePos().ifPresent(pos -> {
+            tag.putInt("HomeX", pos.getX());
+            tag.putInt("HomeY", pos.getY());
+            tag.putInt("HomeZ", pos.getZ());
+        });
+    }
+
+    @Override
+    public void readAdditionalSaveData(CompoundTag tag) {
+        super.readAdditionalSaveData(tag);
+        if (tag.contains("GirlInventory", net.minecraft.nbt.Tag.TAG_LIST)) {
+            this.girlInventory.fromTag(tag.getList("GirlInventory", net.minecraft.nbt.Tag.TAG_COMPOUND), this.registryAccess());
+            this.setItemSlot(net.minecraft.world.entity.EquipmentSlot.HEAD, this.girlInventory.getItem(0));
+            this.setItemSlot(net.minecraft.world.entity.EquipmentSlot.CHEST, this.girlInventory.getItem(1));
+            this.setItemSlot(net.minecraft.world.entity.EquipmentSlot.LEGS, this.girlInventory.getItem(2));
+            this.setItemSlot(net.minecraft.world.entity.EquipmentSlot.FEET, this.girlInventory.getItem(3));
+            this.setItemSlot(net.minecraft.world.entity.EquipmentSlot.MAINHAND, this.girlInventory.getItem(4));
+            this.setItemSlot(net.minecraft.world.entity.EquipmentSlot.OFFHAND, this.girlInventory.getItem(5));
+        }
+        if (tag.contains("CustomPersonality")) {
+            this.setCustomPersonality(tag.getString("CustomPersonality"));
+        }
+        if (tag.contains("HarvestTaskType")) {
+            this.entityData.set(HARVEST_TASK_TYPE, tag.getString("HarvestTaskType"));
+        }
+        if (tag.contains("HarvestTaskSubtype")) {
+            this.entityData.set(HARVEST_TASK_SUBTYPE, tag.getString("HarvestTaskSubtype"));
+        }
+        if (tag.contains("Action")) {
+            try {
+                setAction(ActionState.valueOf(tag.getString("Action")));
+            } catch (Exception ignored) {}
+        }
+        if (tag.contains("Horny")) {
+            setHorny(tag.getFloat("Horny"));
+        }
+        if (tag.contains("ClothState")) {
+            setClothState(tag.getInt("ClothState"));
+        }
+        if (tag.contains("CustomSkin")) {
+            setCustomSkin(tag.getString("CustomSkin"));
+        }
+        if (tag.hasUUID("PartnerUUID")) {
+            setPartnerUUID(tag.getUUID("PartnerUUID"));
+        }
+        if (tag.hasUUID("OwnerUUID")) {
+            setOwnerUUID(tag.getUUID("OwnerUUID"));
+        }
+        if (tag.contains("Following")) {
+            setFollowing(tag.getBoolean("Following"));
+        }
+        if (tag.contains("GoingHome")) {
+            setGoingHome(tag.getBoolean("GoingHome"));
+        }
+        if (tag.contains("HomeX") && tag.contains("HomeY") && tag.contains("HomeZ")) {
+            setHomePos(new BlockPos(tag.getInt("HomeX"), tag.getInt("HomeY"), tag.getInt("HomeZ")));
+        }
+    }
+
+    public net.minecraft.world.SimpleContainer getGirlInventory() {
+        return this.girlInventory;
+    }
+
+    public boolean hasInventory() {
+        String name = getGirlName().toLowerCase();
+        return name.equals("jenny") || name.equals("ellie") || name.equals("bia") || name.equals("luna") || name.equals("cat") || name.equals("slime");
+    }
+
+    @Override
+    public ItemStack getItemBySlot(net.minecraft.world.entity.EquipmentSlot slot) {
+        if (hasInventory()) {
+            return switch (slot) {
+                case HEAD -> this.girlInventory.getItem(0);
+                case CHEST -> this.girlInventory.getItem(1);
+                case LEGS -> this.girlInventory.getItem(2);
+                case FEET -> this.girlInventory.getItem(3);
+                case MAINHAND -> this.girlInventory.getItem(4);
+                case OFFHAND -> this.girlInventory.getItem(5);
+                default -> super.getItemBySlot(slot);
+            };
+        }
+        return super.getItemBySlot(slot);
+    }
+
+    @Override
+    public void setItemSlot(net.minecraft.world.entity.EquipmentSlot slot, ItemStack stack) {
+        super.setItemSlot(slot, stack);
+        if (hasInventory() && !this.syncingInventory) {
+            int slotIdx = switch (slot) {
+                case HEAD -> 0;
+                case CHEST -> 1;
+                case LEGS -> 2;
+                case FEET -> 3;
+                case MAINHAND -> 4;
+                case OFFHAND -> 5;
+                default -> -1;
+            };
+            if (slotIdx >= 0) {
+                this.syncingInventory = true;
+                this.girlInventory.setItem(slotIdx, stack);
+                this.syncingInventory = false;
+            }
+        }
+    }
+
+    public ItemStack addItemToStorage(ItemStack stack) {
+        if (stack.isEmpty()) return ItemStack.EMPTY;
+        ItemStack toInsert = stack.copy();
+
+        // Pass 1: Merge into existing stacks in Storage slots (6..13)
+        for (int i = com.arn.goodmod.inventory.GirlInventoryMenu.GIRL_STORAGE_START;
+             i < com.arn.goodmod.inventory.GirlInventoryMenu.GIRL_STORAGE_START + com.arn.goodmod.inventory.GirlInventoryMenu.GIRL_STORAGE_COUNT;
+             i++) {
+            ItemStack existing = this.girlInventory.getItem(i);
+            if (!existing.isEmpty() && ItemStack.isSameItemSameComponents(existing, toInsert)) {
+                int max = Math.min(existing.getMaxStackSize(), this.girlInventory.getMaxStackSize(existing));
+                int canAdd = Math.min(toInsert.getCount(), max - existing.getCount());
+                if (canAdd > 0) {
+                    existing.grow(canAdd);
+                    toInsert.shrink(canAdd);
+                    this.girlInventory.setItem(i, existing);
+                    if (toInsert.isEmpty()) {
+                        return ItemStack.EMPTY;
+                    }
+                }
+            }
+        }
+
+        // Pass 2: Place into empty slots in Storage slots (6..13)
+        for (int i = com.arn.goodmod.inventory.GirlInventoryMenu.GIRL_STORAGE_START;
+             i < com.arn.goodmod.inventory.GirlInventoryMenu.GIRL_STORAGE_START + com.arn.goodmod.inventory.GirlInventoryMenu.GIRL_STORAGE_COUNT;
+             i++) {
+            ItemStack existing = this.girlInventory.getItem(i);
+            if (existing.isEmpty()) {
+                int max = Math.min(toInsert.getMaxStackSize(), this.girlInventory.getMaxStackSize(toInsert));
+                int take = Math.min(toInsert.getCount(), max);
+                ItemStack newStack = toInsert.split(take);
+                this.girlInventory.setItem(i, newStack);
+                if (toInsert.isEmpty()) {
+                    return ItemStack.EMPTY;
+                }
+            }
+        }
+
+        return toInsert;
+    }
+
+    public String getCustomPersonality() {
+        return this.entityData.get(CUSTOM_PERSONALITY);
+    }
+
+    public void setCustomPersonality(String personality) {
+        this.customPersonality = personality != null ? personality : "";
+        this.entityData.set(CUSTOM_PERSONALITY, this.customPersonality);
+    }
+
+    public String getHarvestTaskType() {
+        return this.entityData.get(HARVEST_TASK_TYPE);
+    }
+
+    public String getHarvestTaskSubtype() {
+        return this.entityData.get(HARVEST_TASK_SUBTYPE);
+    }
+
+    public boolean hasActiveHarvestTask() {
+        return !"none".equalsIgnoreCase(getHarvestTaskType());
+    }
+
+    public void startHarvestTask(String type, String subtype) {
+        this.entityData.set(HARVEST_TASK_TYPE, type != null ? type : "none");
+        this.entityData.set(HARVEST_TASK_SUBTYPE, subtype != null ? subtype : "");
+    }
+
+    public boolean isStorageFull() {
+        if (!hasInventory()) return true;
+        for (int i = com.arn.goodmod.inventory.GirlInventoryMenu.GIRL_STORAGE_START;
+             i < com.arn.goodmod.inventory.GirlInventoryMenu.GIRL_STORAGE_START + com.arn.goodmod.inventory.GirlInventoryMenu.GIRL_STORAGE_COUNT;
+             i++) {
+            ItemStack existing = this.girlInventory.getItem(i);
+            if (existing.isEmpty() || existing.getCount() < existing.getMaxStackSize()) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    public static boolean isToolAlmostBroken(ItemStack tool) {
+        if (!tool.isEmpty() && tool.isDamageableItem()) {
+            return (tool.getMaxDamage() - tool.getDamageValue()) <= 3;
+        }
+        return false;
+    }
+
+    public void stopHarvestTask() {
+        this.entityData.set(HARVEST_TASK_TYPE, "none");
+        this.entityData.set(HARVEST_TASK_SUBTYPE, "");
+    }
+
+    public ItemStack findToolForTask(String taskType, String subtype) {
+        if ("wood".equalsIgnoreCase(taskType)) {
+            return findAxeInInventory();
+        } else if ("stone".equalsIgnoreCase(taskType) || "ore".equalsIgnoreCase(taskType)) {
+            return findPickaxeInInventory();
+        }
+        return ItemStack.EMPTY;
+    }
+
+    public ItemStack findAxeInInventory() {
+        ItemStack inHand = getItemBySlot(net.minecraft.world.entity.EquipmentSlot.MAINHAND);
+        if (isAxe(inHand)) return inHand;
+
+        for (int i = 0; i < this.girlInventory.getContainerSize(); i++) {
+            ItemStack stack = this.girlInventory.getItem(i);
+            if (isAxe(stack)) return stack;
+        }
+        return ItemStack.EMPTY;
+    }
+
+    public ItemStack findPickaxeInInventory() {
+        ItemStack inHand = getItemBySlot(net.minecraft.world.entity.EquipmentSlot.MAINHAND);
+        if (isPickaxe(inHand)) return inHand;
+
+        for (int i = 0; i < this.girlInventory.getContainerSize(); i++) {
+            ItemStack stack = this.girlInventory.getItem(i);
+            if (isPickaxe(stack)) return stack;
+        }
+        return ItemStack.EMPTY;
+    }
+
+    private static boolean isAxe(ItemStack stack) {
+        return !stack.isEmpty() && (stack.getItem() instanceof net.minecraft.world.item.AxeItem || stack.is(net.minecraft.tags.ItemTags.AXES));
+    }
+
+    private static boolean isPickaxe(ItemStack stack) {
+        return !stack.isEmpty() && (stack.getItem() instanceof net.minecraft.world.item.PickaxeItem || stack.is(net.minecraft.tags.ItemTags.PICKAXES));
     }
 
     public void openDialogueScreen(Player player) {
@@ -762,62 +1054,7 @@ public abstract class BaseGirlEntity extends PathfinderMob implements GeoEntity 
         return options;
     }
 
-    @Override
-    public void addAdditionalSaveData(CompoundTag compound) {
-        super.addAdditionalSaveData(compound);
-        compound.putString("Action", getAction().name());
-        compound.putFloat("Horny", getHorny());
-        compound.putInt("ClothState", getClothState());
-        compound.putString("CustomSkin", getCustomSkin());
-        if (getPartnerUUID().isPresent()) {
-            compound.putUUID("PartnerUUID", getPartnerUUID().get());
-        }
-        if (getOwnerUUID().isPresent()) {
-            compound.putUUID("OwnerUUID", getOwnerUUID().get());
-        }
-        compound.putBoolean("Following", isFollowing());
-        compound.putBoolean("GoingHome", isGoingHome());
-        if (hasHome()) {
-            BlockPos home = getHomePos().get();
-            compound.putInt("HomeX", home.getX());
-            compound.putInt("HomeY", home.getY());
-            compound.putInt("HomeZ", home.getZ());
-        }
-    }
 
-    @Override
-    public void readAdditionalSaveData(CompoundTag compound) {
-        super.readAdditionalSaveData(compound);
-        if (compound.contains("Action")) {
-            try {
-                setAction(ActionState.valueOf(compound.getString("Action")));
-            } catch (Exception ignored) {}
-        }
-        if (compound.contains("Horny")) {
-            setHorny(compound.getFloat("Horny"));
-        }
-        if (compound.contains("ClothState")) {
-            setClothState(compound.getInt("ClothState"));
-        }
-        if (compound.contains("CustomSkin")) {
-            setCustomSkin(compound.getString("CustomSkin"));
-        }
-        if (compound.hasUUID("PartnerUUID")) {
-            setPartnerUUID(compound.getUUID("PartnerUUID"));
-        }
-        if (compound.hasUUID("OwnerUUID")) {
-            setOwnerUUID(compound.getUUID("OwnerUUID"));
-        }
-        if (compound.contains("Following")) {
-            setFollowing(compound.getBoolean("Following"));
-        }
-        if (compound.contains("GoingHome")) {
-            setGoingHome(compound.getBoolean("GoingHome"));
-        }
-        if (compound.contains("HomeX") && compound.contains("HomeY") && compound.contains("HomeZ")) {
-            setHomePos(new BlockPos(compound.getInt("HomeX"), compound.getInt("HomeY"), compound.getInt("HomeZ")));
-        }
-    }
 
     public abstract String getGirlName();
 
@@ -879,6 +1116,14 @@ public abstract class BaseGirlEntity extends PathfinderMob implements GeoEntity 
     }
 
     protected void handleAnimationControlKeyframe(String sound) {
+        if (level().isClientSide()) {
+            net.minecraft.client.Minecraft mc = net.minecraft.client.Minecraft.getInstance();
+            boolean isPartner = getPartnerUUID().isPresent() && mc.player != null && getPartnerUUID().get().equals(mc.player.getUUID());
+            if (!isPartner) {
+                return;
+            }
+        }
+
         String lower = sound.toLowerCase();
 
         // 1. Jenny transitions

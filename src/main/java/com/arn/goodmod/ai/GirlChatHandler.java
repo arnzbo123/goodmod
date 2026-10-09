@@ -13,6 +13,7 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
+import net.minecraft.world.item.ItemStack;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.event.ServerChatEvent;
@@ -48,17 +49,7 @@ public class GirlChatHandler {
 
         if (nearbyGirls.isEmpty()) return;
 
-        String apiKey = GoodModConfig.GROQ_API_KEY.get();
         String lower = rawMessage.toLowerCase();
-
-        // If API key is empty, give a subtle hint if the player specifically addressed a girl
-        if (apiKey == null || apiKey.trim().isEmpty()) {
-            boolean mentionsGirl = lower.contains("jenny") || lower.contains("ellie") || lower.contains("bia") || lower.contains("luna") || lower.contains("cat");
-            if (mentionsGirl) {
-                player.sendSystemMessage(Component.literal("§6[Goodcraft] §eTo chat with girls using AI, enter your Groq API key in §fMods -> Goodcraft -> Config§e!"));
-            }
-            return;
-        }
 
         // Determine which girl should respond
         BaseGirlEntity targetGirl = null;
@@ -88,6 +79,22 @@ public class GirlChatHandler {
         }
 
         if (targetGirl == null) return;
+
+        // Check if message is a mining/gathering task command
+        if (handleTaskCommands(targetGirl, player, rawMessage, level, radius)) {
+            return;
+        }
+
+        String apiKey = GoodModConfig.GROQ_API_KEY.get();
+
+        // If API key is empty, give a subtle hint if the player specifically addressed a girl
+        if (apiKey == null || apiKey.trim().isEmpty()) {
+            boolean mentionsGirl = lower.contains("jenny") || lower.contains("ellie") || lower.contains("bia") || lower.contains("luna") || lower.contains("cat");
+            if (mentionsGirl) {
+                player.sendSystemMessage(Component.literal("§6[Goodcraft] §eTo chat with girls using AI, enter your Groq API key in §fMods -> Goodcraft -> Config§e!"));
+            }
+            return;
+        }
 
         int girlId = targetGirl.getId();
         UUID girlUUID = targetGirl.getUUID();
@@ -163,6 +170,110 @@ public class GirlChatHandler {
                     });
                     return null;
                 });
+    }
+
+    public static boolean handleTaskCommands(BaseGirlEntity girl, ServerPlayer player, String rawMessage, ServerLevel level, int radius) {
+        String lower = rawMessage.toLowerCase().trim();
+
+        // 1. Stop command
+        if (lower.equals("stop") || lower.contains("stop mining") || lower.contains("stop chopping") || lower.contains("cancel task") || lower.contains("come back")) {
+            if (girl.hasActiveHarvestTask()) {
+                girl.stopHarvestTask();
+                sendGirlResponse(girl, player, level, radius, "Stopping right now! I'm right here with you~");
+                return true;
+            }
+        }
+
+        // 2. Wood gathering
+        boolean asksWood = lower.contains("wood") || lower.contains("tree") || lower.contains("log") || lower.contains("chop");
+        if (asksWood && (lower.contains("get") || lower.contains("mine") || lower.contains("chop") || lower.contains("gather") || lower.contains("cut") || lower.contains("fetch") || lower.contains("bring"))) {
+            String subtype = null;
+            if (lower.contains("birch")) subtype = "birch";
+            else if (lower.contains("oak")) subtype = "oak";
+            else if (lower.contains("spruce")) subtype = "spruce";
+            else if (lower.contains("jungle")) subtype = "jungle";
+            else if (lower.contains("acacia")) subtype = "acacia";
+            else if (lower.contains("dark oak")) subtype = "dark_oak";
+            else if (lower.contains("cherry")) subtype = "cherry";
+            else if (lower.contains("mangrove")) subtype = "mangrove";
+
+            ItemStack axe = girl.findAxeInInventory();
+            if (axe.isEmpty()) {
+                sendGirlResponse(girl, player, level, radius, "I'd love to help, but I need an axe in my inventory to chop wood! Put one in my inventory first~");
+                return true;
+            }
+
+            girl.startHarvestTask("wood", subtype);
+            String targetName = (subtype != null ? subtype + " " : "") + "wood";
+            sendGirlResponse(girl, player, level, radius, "On it! Let me grab my axe and gather some " + targetName + " for you~");
+            return true;
+        }
+
+        // 3. Stone gathering
+        boolean asksStone = lower.contains("stone") || lower.contains("cobblestone") || lower.contains("deepslate");
+        if (asksStone && (lower.contains("get") || lower.contains("mine") || lower.contains("gather") || lower.contains("fetch") || lower.contains("dig"))) {
+            ItemStack pickaxe = girl.findPickaxeInInventory();
+            if (pickaxe.isEmpty()) {
+                sendGirlResponse(girl, player, level, radius, "I don't have a pickaxe to mine stone! Put one in my inventory first~");
+                return true;
+            }
+
+            String subtype = lower.contains("deepslate") ? "deepslate" : (lower.contains("cobble") ? "cobble" : null);
+            girl.startHarvestTask("stone", subtype);
+            sendGirlResponse(girl, player, level, radius, "Got it! Starting to mine stone for you right away~");
+            return true;
+        }
+
+        // 4. Ore gathering
+        boolean asksOre = lower.contains("ore") || lower.contains("iron") || lower.contains("coal") || lower.contains("copper")
+                || lower.contains("gold") || lower.contains("diamond") || lower.contains("emerald") || lower.contains("redstone") || lower.contains("lapis");
+        if (asksOre && (lower.contains("get") || lower.contains("mine") || lower.contains("gather") || lower.contains("find") || lower.contains("dig"))) {
+            ItemStack pickaxe = girl.findPickaxeInInventory();
+            if (pickaxe.isEmpty()) {
+                sendGirlResponse(girl, player, level, radius, "I need a pickaxe in my inventory before I can mine ores for you!");
+                return true;
+            }
+
+            String subtype = null;
+            if (lower.contains("diamond")) subtype = "diamond";
+            else if (lower.contains("iron")) subtype = "iron";
+            else if (lower.contains("coal")) subtype = "coal";
+            else if (lower.contains("copper")) subtype = "copper";
+            else if (lower.contains("gold")) subtype = "gold";
+            else if (lower.contains("redstone")) subtype = "redstone";
+            else if (lower.contains("lapis")) subtype = "lapis";
+            else if (lower.contains("emerald")) subtype = "emerald";
+
+            girl.startHarvestTask("ore", subtype);
+            String targetName = (subtype != null ? subtype + " " : "") + "ore";
+            sendGirlResponse(girl, player, level, radius, "Yes! I'm on my way to mine " + targetName + " for you~");
+            return true;
+        }
+
+        return false;
+    }
+
+    public static void sendGirlResponse(BaseGirlEntity girl, ServerPlayer player, ServerLevel level, int radius, String reply) {
+        Component messageComponent = Component.literal(GirlPersonality.getChatPrefix(girl) + reply);
+        double hearDistance = radius * 1.5D;
+
+        Set<ServerPlayer> recipients = new HashSet<>();
+        if (player.isAlive() && player.serverLevel() == level) {
+            recipients.add(player);
+        }
+        for (ServerPlayer sp : level.players()) {
+            if (sp.distanceTo(girl) <= hearDistance) {
+                recipients.add(sp);
+            }
+        }
+
+        for (ServerPlayer sp : recipients) {
+            sp.sendSystemMessage(messageComponent);
+        }
+
+        level.sendParticles(ParticleTypes.HEART, girl.getX(), girl.getY() + girl.getEyeHeight() + 0.35D, girl.getZ(), 3, 0.2D, 0.2D, 0.2D, 0.05D);
+        level.playSound(null, girl.getX(), girl.getY(), girl.getZ(), SoundEvents.AMETHYST_BLOCK_CHIME, SoundSource.NEUTRAL, 0.7F, 1.3F);
+        girl.getLookControl().setLookAt(player, 40.0F, 40.0F);
     }
 
     public static void clearHistory(UUID girlUUID) {

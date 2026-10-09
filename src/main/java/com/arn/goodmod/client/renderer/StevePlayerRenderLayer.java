@@ -34,11 +34,9 @@ public class StevePlayerRenderLayer<T extends BaseGirlEntity> extends GeoRenderL
         GeoBone steveBone = bakedModel.getBone("steve").orElse(null);
         if (steveBone == null) return;
 
-        boolean isLocalPartner = (animatable.getPartnerUUID().isPresent() &&
+        boolean isLocalPartner = animatable.getPartnerUUID().isPresent() &&
                 Minecraft.getInstance().player != null &&
-                animatable.getPartnerUUID().get().equals(Minecraft.getInstance().player.getUUID()))
-                || (com.arn.goodmod.client.ClientGameEvents.getActiveSceneGirl() == animatable)
-                || (animatable.getPartnerUUID().isEmpty() && animatable.isInScene());
+                animatable.getPartnerUUID().get().equals(Minecraft.getInstance().player.getUUID());
 
         ResourceLocation skin = DefaultPlayerSkin.getDefaultTexture();
         boolean isSlim = false;

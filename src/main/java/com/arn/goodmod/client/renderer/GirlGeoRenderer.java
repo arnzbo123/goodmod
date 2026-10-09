@@ -22,19 +22,10 @@ public class GirlGeoRenderer<T extends BaseGirlEntity> extends GeoEntityRenderer
             "armorBoobL", "armorBoobR", "armorNippleL", "armorNippleR"
     };
 
-    public static final String[] CHEST_FLESH_BONES = {
-            "boobsFlesh", "upperBodyL", "upperBodyR", "meatTorso", "boobR", "boobL", "boobR1", "boobR2"
-    };
-
     public static final String[] LEGGINGS_BONES = {
             "armorHip", "armorBootyL", "armorBootyR", "armorCheekL", "armorCheekR",
             "armorPantsLowL", "armorPantsLowR", "armorPantsUpL", "armorPantsUpR",
             "armorLegL", "armorLegR", "armorKneeL", "armorKneeR", "armorShinL", "armorShinR"
-    };
-
-    public static final String[] LEGGINGS_FLESH_BONES = {
-            "fleshL", "fleshR", "vagina", "curvesL", "curvesR", "kneeL", "kneeR",
-            "meatCheekL", "meatCheekR", "meatLegL", "meatLegR", "meatShinL", "meatShinR"
     };
 
     public static final String[] BOOTS_BONES = {
@@ -141,11 +132,9 @@ public class GirlGeoRenderer<T extends BaseGirlEntity> extends GeoEntityRenderer
 
             // Determine if slim (Alex) model
             net.minecraft.client.Minecraft mc = net.minecraft.client.Minecraft.getInstance();
-            boolean isLocalPartner = (animatable.getPartnerUUID().isPresent() &&
+            boolean isLocalPartner = animatable.getPartnerUUID().isPresent() &&
                     mc.player != null &&
-                    animatable.getPartnerUUID().get().equals(mc.player.getUUID()))
-                    || (com.arn.goodmod.client.ClientGameEvents.getActiveSceneGirl() == animatable)
-                    || (animatable.getPartnerUUID().isEmpty() && animatable.isInScene());
+                    animatable.getPartnerUUID().get().equals(mc.player.getUUID());
 
             net.minecraft.world.entity.player.Player partnerPlayer = null;
             if (animatable.getPartnerUUID().isPresent() && mc.level != null) {
@@ -209,15 +198,9 @@ public class GirlGeoRenderer<T extends BaseGirlEntity> extends GeoEntityRenderer
         for (String bone : CHEST_BONES) {
             model.getBone(bone).ifPresent(b -> b.setHidden(!hasChest));
         }
-        for (String bone : CHEST_FLESH_BONES) {
-            model.getBone(bone).ifPresent(b -> b.setHidden(hasChest));
-        }
 
         for (String bone : LEGGINGS_BONES) {
             model.getBone(bone).ifPresent(b -> b.setHidden(!hasLegs));
-        }
-        for (String bone : LEGGINGS_FLESH_BONES) {
-            model.getBone(bone).ifPresent(b -> b.setHidden(hasLegs));
         }
 
         for (String bone : BOOTS_BONES) {

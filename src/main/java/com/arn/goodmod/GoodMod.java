@@ -32,5 +32,6 @@ public class GoodMod {
         ModEffects.MOB_EFFECTS.register(modEventBus);
         ModEffects.POTIONS.register(modEventBus);
         ModCreativeTabs.CREATIVE_MODE_TABS.register(modEventBus);
+        ModMenuTypes.MENUS.register(modEventBus);
     }
 }

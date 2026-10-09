@@ -226,18 +226,10 @@ public class GirlGeoModel<T extends BaseGirlEntity> extends GeoModel<T> {
         for (String bone : GirlGeoRenderer.CHEST_BONES) {
             hideBone(bone, isNude || !hasChest);
         }
-        // Chest flesh: hidden only if covered by an equipped chestplate
-        for (String bone : GirlGeoRenderer.CHEST_FLESH_BONES) {
-            hideBone(bone, !isNude && hasChest);
-        }
 
         // 3. Leggings Armor (Armor bone: only shown if leggings equipped and not nude)
         for (String bone : GirlGeoRenderer.LEGGINGS_BONES) {
             hideBone(bone, isNude || !hasLegs);
-        }
-        // Leggings flesh: hidden only if covered by equipped leggings
-        for (String bone : GirlGeoRenderer.LEGGINGS_FLESH_BONES) {
-            hideBone(bone, !isNude && hasLegs);
         }
 
         // 4. Boots Armor (Armor bone: only shown if boots equipped and not nude)

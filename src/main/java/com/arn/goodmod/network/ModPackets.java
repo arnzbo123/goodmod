@@ -187,6 +187,9 @@ public class ModPackets {
                 Player player = context.player();
                 Entity target = player.level().getEntity(entityId);
                 if (target instanceof BaseGirlEntity girl) {
+                    if (girl.getPartnerUUID().isPresent() && !girl.getPartnerUUID().get().equals(player.getUUID())) {
+                        return;
+                    }
                     girl.stopScene();
                 }
             });
@@ -211,6 +214,9 @@ public class ModPackets {
                 Player player = context.player();
                 Entity target = player.level().getEntity(entityId);
                 if (target instanceof BaseGirlEntity girl) {
+                    if (girl.getPartnerUUID().isPresent() && !girl.getPartnerUUID().get().equals(player.getUUID())) {
+                        return;
+                    }
                     girl.handleSceneThrust(player);
                 }
             });
@@ -410,6 +416,9 @@ public class ModPackets {
                 Player player = context.player();
                 Entity target = player.level().getEntity(entityId);
                 if (target instanceof BaseGirlEntity girl) {
+                    if (girl.getPartnerUUID().isEmpty() || !girl.getPartnerUUID().get().equals(player.getUUID())) {
+                        return;
+                    }
                     try {
                         ActionState action = ActionState.valueOf(actionName);
                         girl.setAction(action);
@@ -421,6 +430,63 @@ public class ModPackets {
                             }
                         }
                     } catch (Exception ignored) {}
+                }
+            });
+        }
+    }
+
+    // 11. UpdatePersonalityPayload (Client -> Server)
+    public record UpdatePersonalityPayload(int entityId, String personalityText) implements CustomPacketPayload {
+        public static final Type<UpdatePersonalityPayload> TYPE = new Type<>(ResourceLocation.fromNamespaceAndPath(GoodMod.MODID, "update_personality"));
+        public static final StreamCodec<ByteBuf, UpdatePersonalityPayload> STREAM_CODEC = StreamCodec.composite(
+                ByteBufCodecs.VAR_INT, UpdatePersonalityPayload::entityId,
+                ByteBufCodecs.STRING_UTF8, UpdatePersonalityPayload::personalityText,
+                UpdatePersonalityPayload::new
+        );
+
+        @Override
+        public Type<? extends CustomPacketPayload> type() {
+            return TYPE;
+        }
+
+        public void handle(net.neoforged.neoforge.network.handling.IPayloadContext context) {
+            context.enqueueWork(() -> {
+                Player player = context.player();
+                Entity target = player.level().getEntity(entityId);
+                if (target instanceof BaseGirlEntity girl) {
+                    girl.setCustomPersonality(personalityText);
+                    player.displayClientMessage(Component.literal("§6[" + girl.getGirlName() + "] §aPersonality profile saved!"), true);
+                }
+            });
+        }
+    }
+
+    // 12. GirlTaskCommandPayload (Client -> Server)
+    public record GirlTaskCommandPayload(int entityId, String command, String targetType) implements CustomPacketPayload {
+        public static final Type<GirlTaskCommandPayload> TYPE = new Type<>(ResourceLocation.fromNamespaceAndPath(GoodMod.MODID, "girl_task_command"));
+        public static final StreamCodec<ByteBuf, GirlTaskCommandPayload> STREAM_CODEC = StreamCodec.composite(
+                ByteBufCodecs.VAR_INT, GirlTaskCommandPayload::entityId,
+                ByteBufCodecs.STRING_UTF8, GirlTaskCommandPayload::command,
+                ByteBufCodecs.STRING_UTF8, GirlTaskCommandPayload::targetType,
+                GirlTaskCommandPayload::new
+        );
+
+        @Override
+        public Type<? extends CustomPacketPayload> type() {
+            return TYPE;
+        }
+
+        public void handle(net.neoforged.neoforge.network.handling.IPayloadContext context) {
+            context.enqueueWork(() -> {
+                Player player = context.player();
+                Entity target = player.level().getEntity(entityId);
+                if (target instanceof BaseGirlEntity girl) {
+                    if ("stop".equalsIgnoreCase(command)) {
+                        girl.stopHarvestTask();
+                        player.displayClientMessage(Component.literal("§6[" + girl.getGirlName() + "] §eTask stopped."), true);
+                    } else if ("harvest".equalsIgnoreCase(command)) {
+                        girl.startHarvestTask(targetType, null);
+                    }
                 }
             });
         }
@@ -439,5 +505,7 @@ public class ModPackets {
         registrar.playToServer(GoHomePayload.TYPE, GoHomePayload.STREAM_CODEC, GoHomePayload::handle);
         registrar.playToServer(SetGirlCustomizationPayload.TYPE, SetGirlCustomizationPayload.STREAM_CODEC, SetGirlCustomizationPayload::handle);
         registrar.playToServer(ActionTransitionPayload.TYPE, ActionTransitionPayload.STREAM_CODEC, ActionTransitionPayload::handle);
+        registrar.playToServer(UpdatePersonalityPayload.TYPE, UpdatePersonalityPayload.STREAM_CODEC, UpdatePersonalityPayload::handle);
+        registrar.playToServer(GirlTaskCommandPayload.TYPE, GirlTaskCommandPayload.STREAM_CODEC, GirlTaskCommandPayload::handle);
     }
 }

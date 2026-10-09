@@ -53,12 +53,18 @@ public class ClientGameEvents {
 
     public static void bindActiveScene(BaseGirlEntity girl, ActionState action) {
         Minecraft mc = Minecraft.getInstance();
+        if (mc.player == null) return;
+        // Verify this scene belongs to the local player
+        if (girl.getPartnerUUID().isPresent() && !girl.getPartnerUUID().get().equals(mc.player.getUUID())) {
+            return;
+        }
+        if (activeSceneGirl != null && activeSceneGirl != girl) {
+            activeSceneGirl.stopScene();
+        }
         activeGirlId = girl.getId();
         activeSceneGirl = girl;
         girl.setAction(action);
-        if (mc.player != null) {
-            girl.setPartnerUUID(mc.player.getUUID());
-        }
+        girl.setPartnerUUID(mc.player.getUUID());
         wasInScene = true;
         lastActionState = null;
         sceneTicksInCurrentScene = 0;
@@ -105,8 +111,10 @@ public class ClientGameEvents {
                 girl.setPartnerUUID(partnerUUID.orElse(null));
 
                 boolean isPartner = partnerUUID.isPresent() && partnerUUID.get().equals(mc.player.getUUID());
-                if (action.isAdultScene() && (isPartner || activeGirlId == entityId)) {
-                    bindActiveScene(girl, action);
+                if (action.isAdultScene()) {
+                    if (isPartner) {
+                        bindActiveScene(girl, action);
+                    }
                 } else if (!action.isAdultScene()) {
                     // Ignore stale NULL stop packets if a new scene was recently started
                     if (System.currentTimeMillis() - sceneSessionStartTime < 1500L) {
@@ -142,7 +150,7 @@ public class ClientGameEvents {
         if (activeGirlId != -1) {
             net.minecraft.world.entity.Entity ent = mc.level.getEntity(activeGirlId);
             if (ent instanceof BaseGirlEntity girl && girl.isInScene()) {
-                if (girl.getPartnerUUID().isEmpty() || girl.getPartnerUUID().get().equals(player.getUUID()) || activeSceneGirl == girl) {
+                if (girl.getPartnerUUID().isPresent() && girl.getPartnerUUID().get().equals(player.getUUID())) {
                     currentGirl = girl;
                 }
             }
@@ -151,13 +159,10 @@ public class ClientGameEvents {
             // Check all nearby girl entities around player to avoid frustum culling misses
             var nearbyGirls = mc.level.getEntitiesOfClass(BaseGirlEntity.class, player.getBoundingBox().inflate(16.0D));
             for (BaseGirlEntity girl : nearbyGirls) {
-                if (girl.isInScene()) {
-                    boolean partnerMatches = girl.getPartnerUUID().isEmpty() || girl.getPartnerUUID().get().equals(player.getUUID());
-                    if (partnerMatches || activeSceneGirl == girl || activeGirlId == girl.getId()) {
-                        currentGirl = girl;
-                        activeGirlId = girl.getId();
-                        break;
-                    }
+                if (girl.isInScene() && girl.getPartnerUUID().isPresent() && girl.getPartnerUUID().get().equals(player.getUUID())) {
+                    currentGirl = girl;
+                    activeGirlId = girl.getId();
+                    break;
                 }
             }
         }
@@ -473,9 +478,25 @@ public class ClientGameEvents {
 
     @SubscribeEvent
     public static void onRenderPlayerPre(RenderPlayerEvent.Pre event) {
-        if (activeSceneGirl != null && activeSceneGirl.getPartnerUUID().isPresent()
+        if (activeSceneGirl != null && activeSceneGirl.isInScene() && activeSceneGirl.getPartnerUUID().isPresent()
                 && activeSceneGirl.getPartnerUUID().get().equals(event.getEntity().getUUID())) {
             event.setCanceled(true);
+            return;
+        }
+
+        // Hide vanilla player model in multiplayer if player is participating in a nearby active scene
+        if (event.getEntity() != null && event.getEntity().level() != null) {
+            var nearbyGirls = event.getEntity().level().getEntitiesOfClass(
+                    BaseGirlEntity.class,
+                    event.getEntity().getBoundingBox().inflate(3.5D)
+            );
+            for (BaseGirlEntity girl : nearbyGirls) {
+                if (girl.isInScene() && girl.getPartnerUUID().isPresent()
+                        && girl.getPartnerUUID().get().equals(event.getEntity().getUUID())) {
+                    event.setCanceled(true);
+                    return;
+                }
+            }
         }
     }
 
